@@ -15,6 +15,6 @@ services:
       - key: IMAGE_DIR
         value: "/var/data/herring-monitor/images"
     disk:
-      - name: data
+        name: data
         mountPath: /var/data/herring-monitor
         sizeGB: 1
