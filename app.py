@@ -134,8 +134,27 @@ def promote_candidate(cand_id):
 
 @app.route("/images/<path:filename>")
 def serve_image(filename):
-    """Serve downloaded S2 thumbnails."""
-    return send_from_directory(str(app.config["IMAGE_DIR"]), filename)
+    """Serve downloaded S2 thumbnails from monitor dir or sweep dir."""
+    monitor_path = app.config["IMAGE_DIR"] / filename
+    sweep_path = Path("/Volumes/Z Slim/herring-spawn-data/candidates_sweep_2025") / filename
+    if monitor_path.exists():
+        return send_from_directory(str(app.config["IMAGE_DIR"]), filename)
+    elif sweep_path.exists():
+        return send_from_directory(str(sweep_path.parent), filename)
+    return "Not found", 404
+
+
+@app.route("/api/images/<int:image_id>/label", methods=["POST"])
+def label_image(image_id):
+    """Label a specific image as spawn/no-spawn/skip."""
+    data = request.get_json()
+    label = data.get("label")
+    if label not in ("spawn", "no-spawn", "skip"):
+        return jsonify({"error": "invalid label"}), 400
+    db = get_db(app.config["DB_PATH"])
+    db.execute("UPDATE images SET image_label=? WHERE id=?", (label, image_id))
+    db.commit()
+    return jsonify({"status": "ok"})
 
 
 @app.route("/api/spawn-events")
