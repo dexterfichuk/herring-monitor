@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="section-title">Sweep Candidates ({{ candidates|length }})</h2>
+
+{% if not candidates %}
+<div class="empty">No unlabeled candidates. Run a sweep on your machine to generate candidates.</div>
+{% else %}
+<div class="grid">
+  {% for c in candidates %}
+  <div class="card" id="cand-{{ c.id }}">
+    <img src="/images/{{ c.filename }}" alt="Candidate {{ c.id }}">
+    <div class="card-body">
+      <div class="meta" style="margin-bottom:8px;">
+        {{ c.scene_date[:10] if c.scene_date else '' }} · {{ c.lat|round(3) }}, {{ c.lon|round(3) }} · KNN score: {{ (c.knn_score or 0)|round(3) }}
+      </div>
+      <button class="label-btn spawn" onclick="label({{ c.id }}, 'spawn')">✓ Spawn</button>
+      <button class="label-btn nospawn" onclick="label({{ c.id }}, 'no-spawn')">✗ No Spawn</button>
+      <button class="label-btn" onclick="label({{ c.id }}, 'skip')">Skip</button>
+      <button class="label-btn" style="border-color:#3b82f6;color:#3b82f6;" onclick="promote({{ c.id }})">→ Monitor</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+async function label(id, label) {
+  await fetch(`/api/candidates/${id}/label`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({label})});
+  const card = document.getElementById(`cand-${id}`);
+  if (card) card.style.opacity = '0.3';
+}
+async function promote(id) {
+  await fetch(`/api/candidates/${id}/promote`, {method:'POST'});
+  window.location.reload();
+}
+</script>
+{% endblock %}

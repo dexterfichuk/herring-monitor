@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="map" class="map-container"></div>
+
+<h2 class="section-title">Monitored Locations ({{ locations|length }})</h2>
+
+{% if not locations %}
+<div class="empty">
+  <p>No locations yet. <a href="/add">Add your first spawn location</a> to start monitoring.</p>
+</div>
+{% else %}
+<div class="grid">
+  {% for loc in locations %}
+  <a href="/location/{{ loc.id }}" style="text-decoration:none;color:inherit;">
+    <div class="card">
+      {% if loc.latest_image %}
+      <img src="/images/{{ loc.latest_image }}" alt="{{ loc.name }}">
+      {% else %}
+      <div style="height:220px;background:#0f172a;display:grid;place-items:center;color:#64748b;">No image yet</div>
+      {% endif %}
+      <div class="card-body">
+        <h3>{{ loc.name }}</h3>
+        <div class="meta">
+          {{ loc.region }} · {{ loc.lat|round(2) }}, {{ loc.lon|round(2) }}
+          {% if loc.latest_date %}
+          · {{ loc.latest_date[:10] }}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Leaflet map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  setTimeout(() => {
+    const map = L.map('map').setView([51.5, -127], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    const locs = {{ locations|tojson|safe }};
+    locs.forEach(l => {
+      if (l.lat && l.lon) L.marker([l.lat, l.lon]).addTo(map)
+        .bindPopup(`<b>${l.name}</b><br>${l.region}<br>${l.latest_date || ''}`);
+    });
+  }, 200);
+</script>
+{% endblock %}

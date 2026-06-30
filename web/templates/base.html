@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Herring Monitor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0b1120; color: #e2e8f0; }
+    nav { background: #1a2332; padding: 12px 24px; display: flex; gap: 20px; align-items: center; border-bottom: 1px solid #2d3748; }
+    nav a { color: #94a3b8; text-decoration: none; font-size: 14px; }
+    nav a:hover { color: #e2e8f0; }
+    nav .brand { font-weight: 700; color: #63d471; font-size: 16px; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .card { background: #1a2332; border: 1px solid #2d3748; border-radius: 12px; overflow: hidden; transition: transform 0.2s; }
+    .card:hover { transform: translateY(-2px); border-color: #4a5568; }
+    .card img { width: 100%; height: 220px; object-fit: cover; display: block; background: #0f172a; }
+    .card-body { padding: 12px 14px; }
+    .card-body h3 { font-size: 15px; margin-bottom: 4px; }
+    .card-body .meta { font-size: 12px; color: #64748b; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+    .badge-active { background: #14532d; color: #86efac; }
+    .badge-inactive { background: #1e293b; color: #64748b; }
+    .btn { display: inline-block; padding: 8px 16px; border-radius: 8px; border: 1px solid #3b82f6; background: #1d4ed8; color: #fff; cursor: pointer; text-decoration: none; font-size: 14px; }
+    .btn:hover { background: #2563eb; }
+    .btn-ghost { background: transparent; border-color: #4b5563; color: #94a3b8; }
+    .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #e2e8f0; }
+    .empty { text-align: center; padding: 60px; color: #64748b; }
+    .map-container { height: 300px; border-radius: 12px; margin-bottom: 24px; border: 1px solid #2d3748; }
+    .flash { padding: 10px 16px; margin-bottom: 16px; border-radius: 8px; }
+    .flash-error { background: #7f1d1d; color: #fca5a5; }
+    .label-btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #2d3748; background: #1a2332; color: #e2e8f0; cursor: pointer; font-size: 16px; margin: 4px; }
+    .label-btn:hover { border-color: #3b82f6; }
+    .label-btn.spawn { border-color: #22c55e; color: #22c55e; }
+    .label-btn.nospawn { border-color: #ef4444; color: #ef4444; }
+    .timeline { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; }
+    .timeline-item { min-width: 220px; }
+    .timeline-item img { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; }
+    form { display: grid; gap: 12px; max-width: 400px; }
+    form input, form select { padding: 10px; border-radius: 8px; border: 1px solid #2d3748; background: #1a2332; color: #e2e8f0; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" class="brand">🐟 Herring Monitor</a>
+    <a href="/">Dashboard</a>
+    <a href="/sweep">Sweep</a>
+    <a href="/add">+ Add Location</a>
+    <span style="flex:1"></span>
+    <a href="/api/refresh" onclick="fetch('/api/refresh',{method:'POST'});return false" class="btn btn-ghost">↻ Refresh</a>
+  </nav>
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

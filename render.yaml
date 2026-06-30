@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: herring-monitor
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn web.app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: APP_PASSWORD
+        sync: false
+      - key: IMAGE_DIR
+        value: "/var/data/herring-monitor/images"
+    disk:
+      - name: data
+        mountPath: /var/data/herring-monitor
+        sizeGB: 1
