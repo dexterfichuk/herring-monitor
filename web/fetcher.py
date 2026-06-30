@@ -1,46 +1,56 @@
-"""STAC thumbnail downloader — fetches latest S2 images for monitored locations."""
+"""STAC thumbnail downloader — fetches latest S2 images for monitored locations.
+
+Requires rasterio, pystac-client, pyproj, planetary-computer, numpy (heavy deps).
+These are NOT installed on Render free tier (GDAL needed for rasterio).
+The web dashboard works without them — serves existing images from disk.
+"""
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-
-import numpy as np
-import rasterio
-from PIL import Image
-from pyproj import Transformer
-from pystac_client import Client as STACClient
-from rasterio.windows import Window
 
 STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 WINDOW_PX = 512
 MAX_CLOUD = 60
-MAX_AGE_DAYS = 30
 SEARCH_BUFFER = 0.06
-SPAWN_SEASON_DEFAULT = ("02-01", "05-15")
-
 _client = None
 
 
 def get_catalog():
     global _client
     if _client is None:
-        _client = STACClient.open(STAC_URL)
+        try:
+            from pystac_client import Client as STACClient
+            _client = STACClient.open(STAC_URL)
+        except ImportError:
+            return None
     return _client
 
 
-def fetch_latest_for_all(db, image_dir: Path):
+def fetch_latest_for_all(db, image_dir):
     """For each monitored location: check for the latest S2 scene and download if new."""
+    try:
+        import numpy as np
+        import rasterio
+        from PIL import Image
+        from pyproj import Transformer
+        from pystac_client import Client as STACClient
+        from rasterio.windows import Window
+        import planetary_computer as pc
+    except ImportError:
+        return 0  # STAC deps not installed — skip (Render free tier)
+
     locations = db.execute("SELECT * FROM locations").fetchall()
     added = 0
     catalog = get_catalog()
+    if catalog is None:
+        return 0
 
     for loc in locations:
-        # Determine spawn season window
         season_start = loc["spawn_season_start"] or "02-01"
         season_end = loc["spawn_season_end"] or "05-15"
         year = datetime.now().year
 
-        # Check last fetched date for this location
         last = db.execute(
             "SELECT scene_date FROM images WHERE location_id=? ORDER BY scene_date DESC LIMIT 1",
             (loc["id"],)
@@ -55,9 +65,8 @@ def fetch_latest_for_all(db, image_dir: Path):
 
         scene_date = scene.properties["datetime"][:10]
         if last and scene_date <= last["scene_date"]:
-            continue  # No new scene
+            continue
 
-        # Download thumbnail
         fname = f"{loc['id']}_{scene_date}_{loc['lat']:.4f}_{loc['lon']:.4f}.png"
         img = _download_crop(scene, loc["lon"], loc["lat"])
         if img is None:
@@ -79,12 +88,12 @@ def fetch_latest_for_all(db, image_dir: Path):
 
 
 def _find_best_scene(catalog, lon, lat, date_start, date_end):
-    """Find the lowest-cloud S2 scene in the date range."""
-    bbox = [lon - SEARCH_BUFFER, lat - SEARCH_BUFFER,
-            lon + SEARCH_BUFFER, lat + SEARCH_BUFFER]
     try:
         search = catalog.search(
-            collections=["sentinel-2-l2a"], bbox=bbox,
+            collections=["sentinel-2-l2a"], bbox=[
+                lon - SEARCH_BUFFER, lat - SEARCH_BUFFER,
+                lon + SEARCH_BUFFER, lat + SEARCH_BUFFER
+            ],
             datetime=f"{date_start}/{date_end}",
             query={"eo:cloud_cover": {"lte": MAX_CLOUD}}, max_items=10)
         items = list(search.items())
@@ -96,8 +105,13 @@ def _find_best_scene(catalog, lon, lat, date_start, date_end):
 
 
 def _download_crop(item, lon, lat):
-    """Download 512x512 true-color thumbnail centered on (lon, lat)."""
+    import numpy as np
+    import rasterio
+    from PIL import Image
+    from pyproj import Transformer
+    from rasterio.windows import Window
     import planetary_computer as pc
+
     try:
         rh = pc.sign(item.assets["B04"].href)
         with rasterio.open(rh) as sr:
