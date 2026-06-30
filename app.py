@@ -2,18 +2,45 @@
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 from pathlib import Path
-import json, os, datetime
+import json, os, datetime, sqlite3
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 # Config
-app.config["IMAGE_DIR"] = Path(os.environ.get("IMAGE_DIR", "/Volumes/Z Slim/herring-spawn-data/monitor"))
+default_dir = Path(os.path.dirname(__file__)) / "data" / "images"
+app.config["IMAGE_DIR"] = Path(os.environ.get("IMAGE_DIR", str(default_dir)))
 app.config["DB_PATH"] = app.config["IMAGE_DIR"] / "monitor.db"
 
-# Init DB
+# Image CDN base URL (R2 bucket or local filesystem)
+app.config["IMAGE_BASE_URL"] = os.environ.get("IMAGE_BASE_URL", "")
+
+# Init DB — seed from bundled copy on Render if empty
 from web.db import init_db, get_db
+app.config["IMAGE_DIR"].mkdir(parents=True, exist_ok=True)
 init_db(app.config["DB_PATH"])
+
+# Seed from bundled DB if running on Render (empty locations)
+db = get_db(app.config["DB_PATH"])
+loc_count = db.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
+if loc_count == 0:
+    seed_db = Path(__file__).parent / "seed.db"
+    if seed_db.exists():
+        import shutil
+        src = sqlite3.connect(str(seed_db))
+        dst = db
+        for table in ["locations", "images", "candidates"]:
+            try:
+                rows = src.execute(f"SELECT * FROM {table}").fetchall()
+                if rows:
+                    cols = [d[0] for d in src.execute(f"PRAGMA table_info({table})").fetchall()]
+                    placeholders = ",".join(["?"] * len(cols))
+                    for row in rows:
+                        dst.execute(f"INSERT INTO {table} ({','.join(cols)}) VALUES ({placeholders})", tuple(row))
+                    dst.commit()
+            except: pass
+        src.close()
+        print(f"Seeded {dst.execute('SELECT COUNT(*) FROM locations').fetchone()[0]} locations from bundled DB")
 
 
 @app.route("/")
