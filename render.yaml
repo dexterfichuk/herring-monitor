@@ -13,8 +13,4 @@ services:
       - key: APP_PASSWORD
         sync: false
       - key: IMAGE_DIR
-        value: "/var/data/herring-monitor/images"
-    disk:
-        name: data
-        mountPath: /var/data/herring-monitor
-        sizeGB: 1
+        value: "/opt/render/project/src/data/images"
