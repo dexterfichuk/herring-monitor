@@ -8,15 +8,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 # Config
-default_dir = os.environ.get("IMAGE_DIR") or os.path.join(os.path.dirname(__file__), "data", "images")
-app.config["IMAGE_DIR"] = Path(default_dir)
+app.config["IMAGE_DIR"] = Path(os.environ.get("IMAGE_DIR", "/Volumes/Z Slim/herring-spawn-data/monitor"))
 app.config["DB_PATH"] = app.config["IMAGE_DIR"] / "monitor.db"
 
 # Init DB
-try:
-    from web.db import init_db, get_db
-except ImportError:
-    from db import init_db, get_db
+from web.db import init_db, get_db
 init_db(app.config["DB_PATH"])
 
 
@@ -32,6 +28,10 @@ def dashboard():
     if year: params["year"] = f"{year}%"
     if spawn_min: params["spawn"] = float(spawn_min)
 
+    where_clause = ""
+    if spawn_min:
+        where_clause = f"WHERE EXISTS (SELECT 1 FROM images WHERE location_id=l.id {spawn_clause})"
+
     query = f"""
         SELECT l.*,
             (SELECT filename FROM images WHERE location_id=l.id {year_clause} {spawn_clause}
@@ -44,6 +44,7 @@ def dashboard():
              ORDER BY COALESCE(cloud_cover,100) ASC, scene_date DESC LIMIT 1) as spawn_score,
             (SELECT COUNT(*) FROM images WHERE location_id=l.id {year_clause} {spawn_clause}) as image_count
         FROM locations l
+        {where_clause}
         ORDER BY COALESCE(
             (SELECT spawn_score FROM images WHERE location_id=l.id {year_clause} {spawn_clause}
              ORDER BY COALESCE(cloud_cover,100) ASC LIMIT 1), 0) DESC, l.region, l.name

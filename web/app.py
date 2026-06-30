@@ -28,6 +28,10 @@ def dashboard():
     if year: params["year"] = f"{year}%"
     if spawn_min: params["spawn"] = float(spawn_min)
 
+    where_clause = ""
+    if spawn_min:
+        where_clause = f"WHERE EXISTS (SELECT 1 FROM images WHERE location_id=l.id {spawn_clause})"
+
     query = f"""
         SELECT l.*,
             (SELECT filename FROM images WHERE location_id=l.id {year_clause} {spawn_clause}
@@ -40,6 +44,7 @@ def dashboard():
              ORDER BY COALESCE(cloud_cover,100) ASC, scene_date DESC LIMIT 1) as spawn_score,
             (SELECT COUNT(*) FROM images WHERE location_id=l.id {year_clause} {spawn_clause}) as image_count
         FROM locations l
+        {where_clause}
         ORDER BY COALESCE(
             (SELECT spawn_score FROM images WHERE location_id=l.id {year_clause} {spawn_clause}
              ORDER BY COALESCE(cloud_cover,100) ASC LIMIT 1), 0) DESC, l.region, l.name
