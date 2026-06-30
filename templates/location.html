@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="section-title">{{ location.name }}</h2>
+<p style="color:#64748b;margin-bottom:20px;">{{ location.region }} · {{ location.lat|round(4) }}, {{ location.lon|round(4) }} · {{ images|length }} images</p>
+
+{% if not images %}
+<div class="empty">No images yet for this location. <a href="/api/refresh" onclick="fetch('/api/refresh',{method:'POST'});return false">Trigger a refresh</a>.</div>
+{% else %}
+<div class="timeline">
+  {% for img in images %}
+  <div class="timeline-item">
+    <img src="/images/{{ img.filename }}" alt="{{ img.scene_date }}">
+    <div class="meta" style="margin-top:4px;font-size:11px;">
+      {{ img.scene_date[:10] }}
+      {% if img.cloud_cover is not none %}
+      · {{ (img.cloud_cover)|round|int }}% cloud
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<a href="/" class="btn btn-ghost" style="margin-top:20px;">← Back to Dashboard</a>
+{% endblock %}

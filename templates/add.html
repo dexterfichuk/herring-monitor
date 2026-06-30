@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="section-title">Add Location to Monitor</h2>
+<form method="POST">
+  <input type="text" name="name" placeholder="Location name (e.g. Forward Inlet)" required>
+  <input type="text" name="region" placeholder="Region (e.g. A27, CC, WCVI)">
+  <input type="number" step="any" name="lat" placeholder="Latitude (e.g. 50.48)" required>
+  <input type="number" step="any" name="lon" placeholder="Longitude (e.g. -128.03)" required>
+  <button type="submit" class="btn">Add Location</button>
+</form>
+<a href="/" class="btn btn-ghost" style="margin-top:12px;">← Back</a>
+{% endblock %}

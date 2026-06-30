@@ -8,11 +8,15 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 
 # Config
-app.config["IMAGE_DIR"] = Path(os.environ.get("IMAGE_DIR", "/Volumes/Z Slim/herring-spawn-data/monitor"))
+default_dir = os.environ.get("IMAGE_DIR") or os.path.join(os.path.dirname(__file__), "data", "images")
+app.config["IMAGE_DIR"] = Path(default_dir)
 app.config["DB_PATH"] = app.config["IMAGE_DIR"] / "monitor.db"
 
 # Init DB
-from web.db import init_db, get_db
+try:
+    from web.db import init_db, get_db
+except ImportError:
+    from db import init_db, get_db
 init_db(app.config["DB_PATH"])
 
 

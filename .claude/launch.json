@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "herring-monitor",
+      "runtimeExecutable": "/Users/dexterfichuk/Projects/herring-monitor/.venv/bin/python3",
+      "runtimeArgs": [
+        "-c",
+        "import sys,os; os.chdir('/Users/dexterfichuk/Projects/herring-monitor'); sys.path.insert(0,'.'); os.environ['IMAGE_DIR']='/Volumes/Z Slim/herring-spawn-data/monitor'; from web.app import app; app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5050)), debug=True)"
+      ],
+      "port": 5050,
+      "autoPort": true
+    }
+  ]
+}
