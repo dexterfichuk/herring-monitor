@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS images (
     cloud_cover REAL,
     filename TEXT,
     spawn_score REAL,
-    fetched_at TEXT DEFAULT (datetime('now'))
+    fetched_at TEXT DEFAULT (datetime('now')),
+    image_label TEXT
 );
 
 CREATE TABLE IF NOT EXISTS candidates (

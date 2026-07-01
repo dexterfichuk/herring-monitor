@@ -20,18 +20,27 @@ from web.db import init_db, get_db
 app.config["IMAGE_DIR"].mkdir(parents=True, exist_ok=True)
 init_db(app.config["DB_PATH"])
 
-# Seed from bundled DB if running on Render (empty locations)
+# Ensure image_label column exists (backwards-compat for DBs created before schema update)
 db = get_db(app.config["DB_PATH"])
+try:
+    db.execute("ALTER TABLE images ADD COLUMN image_label TEXT")
+    db.commit()
+except Exception:
+    pass  # column already exists
+
+# Seed from bundled DB if running on Render (empty locations)
 loc_count = db.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
 if loc_count == 0:
     seed_db = Path(__file__).parent / "seed.db"
     if seed_db.exists():
         print("Seeding from bundled seed.db...")
-        # Use ATTACH for fast direct copy
         db.execute("ATTACH ? AS seed_db", (str(seed_db),))
         for table in ["locations", "images", "candidates"]:
             try:
-                db.execute(f"INSERT OR IGNORE INTO main.{table} SELECT * FROM seed_db.{table}")
+                cols = ",".join(
+                    c["name"] for c in db.execute(f"PRAGMA main.table_info({table})").fetchall()
+                )
+                db.execute(f"INSERT OR IGNORE INTO main.{table} ({cols}) SELECT {cols} FROM seed_db.{table}")
                 db.commit()
             except Exception as e:
                 print(f"  Seed error ({table}): {e}")
