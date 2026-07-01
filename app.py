@@ -15,28 +15,20 @@ app.config["DB_PATH"] = app.config["IMAGE_DIR"] / "monitor.db"
 # Image CDN base URL (R2 bucket or local filesystem)
 app.config["IMAGE_BASE_URL"] = os.environ.get("IMAGE_BASE_URL", "")
 
-# Init DB — seed from bundled copy on Render if empty
+# Init DB — copy pre-built seed.db directly (fastest and most reliable)
 from web.db import init_db, get_db
 app.config["IMAGE_DIR"].mkdir(parents=True, exist_ok=True)
-init_db(app.config["DB_PATH"])
 
-# Seed from bundled DB if images are missing (locations may already exist from prior deploy)
+seed_db_src = Path(__file__).parent / "seed.db"
+if seed_db_src.exists():
+    import shutil
+    shutil.copy2(str(seed_db_src), str(app.config["DB_PATH"]))
+    print(f"DB: copied seed.db ({seed_db_src.stat().st_size} bytes)")
+else:
+    init_db(app.config["DB_PATH"])
+
 db = get_db(app.config["DB_PATH"])
-image_count = db.execute("SELECT COUNT(*) FROM images").fetchone()[0]
-if image_count == 0:
-    seed_db = Path(__file__).parent / "seed.db"
-    if seed_db.exists():
-        print("Seeding from bundled seed.db...")
-        db.execute("ATTACH ? AS seed_db", (str(seed_db),))
-        for table in ["locations", "images", "candidates"]:
-            try:
-                db.execute(f"INSERT OR IGNORE INTO main.{table} SELECT * FROM seed_db.{table}")
-                db.commit()
-            except Exception as e:
-                print(f"  Seed error ({table}): {e}")
-        db.execute("DETACH seed_db")
-        new_imgs = db.execute("SELECT COUNT(*) FROM main.images").fetchone()[0]
-        print(f"Seed complete: {new_imgs} images, {db.execute('SELECT COUNT(*) FROM main.locations').fetchone()[0]} locations")
+print(f"DB ready: {db.execute('SELECT COUNT(*) FROM locations').fetchone()[0]} locs, {db.execute('SELECT COUNT(*) FROM images').fetchone()[0]} imgs")
 
 
 @app.route("/")
