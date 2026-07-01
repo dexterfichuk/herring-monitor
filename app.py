@@ -20,14 +20,13 @@ from web.db import init_db, get_db
 app.config["IMAGE_DIR"].mkdir(parents=True, exist_ok=True)
 init_db(app.config["DB_PATH"])
 
-# Seed from bundled DB if running on Render (empty locations)
+# Seed from bundled DB if images are missing (locations may already exist from prior deploy)
 db = get_db(app.config["DB_PATH"])
-loc_count = db.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
-if loc_count == 0:
+image_count = db.execute("SELECT COUNT(*) FROM images").fetchone()[0]
+if image_count == 0:
     seed_db = Path(__file__).parent / "seed.db"
     if seed_db.exists():
         print("Seeding from bundled seed.db...")
-        # Use ATTACH for fast direct copy
         db.execute("ATTACH ? AS seed_db", (str(seed_db),))
         for table in ["locations", "images", "candidates"]:
             try:
@@ -36,8 +35,8 @@ if loc_count == 0:
             except Exception as e:
                 print(f"  Seed error ({table}): {e}")
         db.execute("DETACH seed_db")
-        new_count = db.execute("SELECT COUNT(*) FROM main.locations").fetchone()[0]
-        print(f"Seed complete: {new_count} locations")
+        new_imgs = db.execute("SELECT COUNT(*) FROM main.images").fetchone()[0]
+        print(f"Seed complete: {new_imgs} images, {db.execute('SELECT COUNT(*) FROM main.locations').fetchone()[0]} locations")
 
 
 @app.route("/")
