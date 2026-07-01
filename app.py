@@ -26,21 +26,18 @@ loc_count = db.execute("SELECT COUNT(*) FROM locations").fetchone()[0]
 if loc_count == 0:
     seed_db = Path(__file__).parent / "seed.db"
     if seed_db.exists():
-        import shutil
-        src = sqlite3.connect(str(seed_db))
-        dst = db
+        print("Seeding from bundled seed.db...")
+        # Use ATTACH for fast direct copy
+        db.execute("ATTACH ? AS seed_db", (str(seed_db),))
         for table in ["locations", "images", "candidates"]:
             try:
-                rows = src.execute(f"SELECT * FROM {table}").fetchall()
-                if rows:
-                    cols = [d[0] for d in src.execute(f"PRAGMA table_info({table})").fetchall()]
-                    placeholders = ",".join(["?"] * len(cols))
-                    for row in rows:
-                        dst.execute(f"INSERT INTO {table} ({','.join(cols)}) VALUES ({placeholders})", tuple(row))
-                    dst.commit()
-            except: pass
-        src.close()
-        print(f"Seeded {dst.execute('SELECT COUNT(*) FROM locations').fetchone()[0]} locations from bundled DB")
+                db.execute(f"INSERT OR IGNORE INTO main.{table} SELECT * FROM seed_db.{table}")
+                db.commit()
+            except Exception as e:
+                print(f"  Seed error ({table}): {e}")
+        db.execute("DETACH seed_db")
+        new_count = db.execute("SELECT COUNT(*) FROM main.locations").fetchone()[0]
+        print(f"Seed complete: {new_count} locations")
 
 
 @app.route("/")
