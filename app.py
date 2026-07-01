@@ -164,8 +164,8 @@ def serve_image(filename):
         return send_from_directory(str(app.config["IMAGE_DIR"]), filename)
     elif sweep_path.exists():
         return send_from_directory(str(sweep_path.parent), filename)
-    # Fall back to R2 CDN if configured
-    base = app.config.get("IMAGE_BASE_URL", "")
+    # Fall back to R2 CDN (hardcoded free tier URL)
+    base = app.config.get("IMAGE_BASE_URL", "") or "https://pub-85ee094121844d28a1597a25e41f5d15.r2.dev"
     if base:
         import requests
         r2_url = f"{base}/{filename}"
