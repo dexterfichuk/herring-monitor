@@ -158,13 +158,24 @@ def promote_candidate(cand_id):
 
 @app.route("/images/<path:filename>")
 def serve_image(filename):
-    """Serve downloaded S2 thumbnails from monitor dir or sweep dir."""
+    """Serve S2 thumbnails — local disk first, fall back to R2 CDN."""
     monitor_path = app.config["IMAGE_DIR"] / filename
     sweep_path = Path("/Volumes/Z Slim/herring-spawn-data/candidates_sweep_2025") / filename
     if monitor_path.exists():
         return send_from_directory(str(app.config["IMAGE_DIR"]), filename)
     elif sweep_path.exists():
         return send_from_directory(str(sweep_path.parent), filename)
+    # Fall back to R2 CDN if configured
+    base = app.config.get("IMAGE_BASE_URL", "")
+    if base:
+        import requests
+        r2_url = f"{base}/{filename}"
+        try:
+            resp = requests.get(r2_url, timeout=5)
+            if resp.status_code == 200:
+                return resp.content, 200, {"Content-Type": resp.headers.get("content-type", "image/png")}
+        except Exception:
+            pass
     return "Not found", 404
 
 
