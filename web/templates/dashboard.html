@@ -11,6 +11,10 @@
     <span class="filter-count" id="filter-count">{{ locations|length }} sites</span>
   </div>
   <div class="flex-row gap-sm">
+    <div class="view-toggle" style="display:flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+      <button onclick="setView('cards')" id="viewBtn-cards" class="view-btn active" title="Card grid">▦</button>
+      <button onclick="setView('table')" id="viewBtn-table" class="view-btn" title="Table">☰</button>
+    </div>
     <div class="search-wrap">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="text" id="searchInput" class="search-input" placeholder="Filter by name or region..." autocomplete="off">
@@ -56,6 +60,57 @@
   <div id="events-list" style="display:none;gap:12px;overflow-x:auto;padding:12px 0 4px;"></div>
   <div id="events-empty" style="display:none;text-align:center;padding:28px;color:var(--text-muted);">No recent spawn events found.</div>
 </section>
+
+<!-- Table View -->
+{% if locations %}
+<div id="locationTable" style="display:none;">
+  <div style="overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--surface);">
+  <table class="location-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="border-bottom:2px solid var(--border);text-align:left;">
+        <th class="sort-header" onclick="sortTable('name')" style="padding:10px 14px;cursor:pointer;white-space:nowrap;color:var(--text-muted);font-weight:600;font-size:12px;user-select:none;">Name <span class="sort-arrow" id="arrow-name"></span></th>
+        <th class="sort-header" onclick="sortTable('region')" style="padding:10px 14px;cursor:pointer;white-space:nowrap;color:var(--text-muted);font-weight:600;font-size:12px;user-select:none;">Region <span class="sort-arrow" id="arrow-region"></span></th>
+        <th class="sort-header" onclick="sortTable('date')" style="padding:10px 14px;cursor:pointer;white-space:nowrap;color:var(--text-muted);font-weight:600;font-size:12px;user-select:none;">Latest <span class="sort-arrow" id="arrow-date"></span></th>
+        <th class="sort-header" onclick="sortTable('score')" style="padding:10px 14px;cursor:pointer;white-space:nowrap;color:var(--text-muted);font-weight:600;font-size:12px;user-select:none;">Score <span class="sort-arrow" id="arrow-score"></span></th>
+        <th class="sort-header" onclick="sortTable('cloud')" style="padding:10px 14px;cursor:pointer;white-space:nowrap;color:var(--text-muted);font-weight:600;font-size:12px;user-select:none;">Cloud <span class="sort-arrow" id="arrow-cloud"></span></th>
+        <th class="sort-header" onclick="sortTable('count')" style="padding:10px 14px;cursor:pointer;white-space:nowrap;color:var(--text-muted);font-weight:600;font-size:12px;user-select:none;">Imgs <span class="sort-arrow" id="arrow-count"></span></th>
+        <th style="padding:10px 14px;white-space:nowrap;color:var(--text-muted);font-weight:600;font-size:12px;">Label</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      {% for loc in locations %}
+      <tr class="table-row" data-name="{{ loc.get('name', '')|lower }}" data-region="{{ loc.get('region', '')|lower }}" data-id="{{ loc.id }}" data-lat="{{ loc.lat }}" data-lon="{{ loc.lon }}" data-img-id="{{ loc.get('latest_image_id', '') }}"
+          onclick="window.location='/location/{{ loc.id }}'" style="cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.1s;"
+          onmouseenter="highlightMarker({{ loc.id }})" onmouseleave="unhighlightMarker()">
+        <td style="padding:9px 14px;font-weight:600;white-space:nowrap;">{{ loc.get('name', '') }}</td>
+        <td style="padding:9px 14px;color:var(--text-secondary);white-space:nowrap;">{{ loc.get('region', '') }}</td>
+        <td style="padding:9px 14px;color:var(--text-muted);white-space:nowrap;font-size:12px;">{{ loc.get('latest_date', '')[:10] if loc.get('latest_date') else '—' }}</td>
+        <td style="padding:9px 14px;white-space:nowrap;">
+          {% set ss = loc.get('spawn_score') or 0 %}
+          <span style="font-weight:600;{% if ss >= 0.5 %}color:var(--spawn);{% elif ss >= 0.3 %}color:var(--possible);{% else %}color:var(--text-muted);{% endif %}">{{ ss|round(2) }}</span>
+        </td>
+        <td style="padding:9px 14px;white-space:nowrap;">
+          {% set cc = loc.get('cloud_cover') %}
+          {% if cc is not none %}
+          <span style="{% if cc < 20 %}color:var(--spawn);{% elif cc < 50 %}color:var(--possible);{% else %}color:var(--text-muted);{% endif %}">{{ cc|round|int }}%</span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="padding:9px 14px;color:var(--text-muted);white-space:nowrap;">{{ loc.get('image_count', 0) }}</td>
+        <td style="padding:9px 10px;white-space:nowrap;" onclick="event.stopPropagation();">
+          {% if loc.get('latest_image_id') %}
+          <button class="label-btn spawn quick" onclick="quickLabel(event, {{ loc.get('latest_image_id') }}, 'spawn')">S</button>
+          <button class="label-btn nospawn quick" onclick="quickLabel(event, {{ loc.get('latest_image_id') }}, 'no-spawn')">N</button>
+          <span class="saved-indicator" id="dash-saved-{{ loc.get('latest_image_id') }}">✓</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div id="tableNoResults" style="display:none;text-align:center;padding:40px;color:var(--text-muted);">No locations match your search.</div>
+</div>
+{% endif %}
 
 <!-- Card Grid -->
 {% if not locations %}
@@ -126,6 +181,83 @@ function updateFilter() {
   window.location = url;
 }
 
+/* --- View toggle --- */
+var currentView = 'cards';
+window.setView = function(view) {
+  currentView = view;
+  document.getElementById('viewBtn-cards').classList.toggle('active', view === 'cards');
+  document.getElementById('viewBtn-table').classList.toggle('active', view === 'table');
+  document.getElementById('locationGrid').style.display = view === 'cards' ? 'grid' : 'none';
+  var tbl = document.getElementById('locationTable');
+  if (tbl) tbl.style.display = view === 'table' ? 'block' : 'none';
+  localStorage.setItem('hm-view', view);
+};
+
+/* --- Table sort --- */
+var sortState = {col: 'score', dir: 'desc'};
+window.sortTable = function(col) {
+  if (sortState.col === col) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+  else { sortState.col = col; sortState.dir = 'desc'; }
+  document.querySelectorAll('.sort-arrow').forEach(function(a) { a.textContent = ''; });
+  var arrow = document.getElementById('arrow-' + col);
+  if (arrow) arrow.textContent = sortState.dir === 'asc' ? ' ▲' : ' ▼';
+
+  var tbody = document.getElementById('tableBody');
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a, b) {
+    var av, bv;
+    if (col === 'name') { av = (a.dataset.name || '').toLowerCase(); bv = (b.dataset.name || '').toLowerCase(); }
+    else if (col === 'region') { av = (a.dataset.region || '').toLowerCase(); bv = (b.dataset.region || '').toLowerCase(); }
+    else if (col === 'date') {
+      av = a.cells[2].textContent.trim(); bv = b.cells[2].textContent.trim();
+      if (av === '—') av = '0000'; if (bv === '—') bv = '0000';
+    }
+    else if (col === 'score') {
+      av = parseFloat(a.cells[3].textContent.trim()) || 0;
+      bv = parseFloat(b.cells[3].textContent.trim()) || 0;
+    }
+    else if (col === 'cloud') {
+      av = parseInt(a.cells[4].textContent.trim()) || 100;
+      bv = parseInt(b.cells[4].textContent.trim()) || 100;
+    }
+    else if (col === 'count') {
+      av = parseInt(a.cells[5].textContent.trim()) || 0;
+      bv = parseInt(b.cells[5].textContent.trim()) || 0;
+    }
+    return sortState.dir === 'asc' ? (av < bv ? -1 : av > bv ? 1 : 0) : (av < bv ? 1 : av > bv ? -1 : 0);
+  });
+  rows.forEach(function(r) { tbody.appendChild(r); });
+};
+
+/* --- Map marker highlight on table row hover --- */
+var _highlightedId = null;
+window.highlightMarker = function(id) {
+  _highlightedId = id;
+  var rows = document.querySelectorAll('.table-row');
+  rows.forEach(function(r) { r.classList.toggle('highlighted', r.dataset.id === String(id)); });
+
+  // Restore previous highlight
+  if (window._prevHighlight) {
+    window._prevHighlight.setStyle({fillOpacity: 0.75, weight: 2, radius: window._prevHighlight._origRadius || 5});
+    window._prevHighlight = null;
+  }
+
+  if (window._markers && window._markers[id]) {
+    var m = window._markers[id];
+    window._prevHighlight = m;
+    m.setStyle({fillOpacity: 1, weight: 4, radius: (m._origRadius || 5) + 3});
+    m.bringToFront();
+  }
+};
+window.unhighlightMarker = function() {
+  _highlightedId = null;
+  document.querySelectorAll('.table-row.highlighted').forEach(function(r) { r.classList.remove('highlighted'); });
+  if (window._prevHighlight) {
+    window._prevHighlight.setStyle({fillOpacity: 0.75, weight: 2, radius: window._prevHighlight._origRadius || 5});
+    window._prevHighlight = null;
+  }
+};
+
 /* --- Quick label --- */
 var dashSavedTimers = {};
 window.quickLabel = async function(event, imgId, label) {
@@ -149,27 +281,41 @@ window.quickLabel = async function(event, imgId, label) {
 /* --- Client search --- */
 (function() {
   const searchInput = document.getElementById('searchInput');
-  const cards = Array.from(document.querySelectorAll('.location-card'));
   const noResults = document.getElementById('noResults');
   const filterCount = document.getElementById('filter-count');
-  const totalCount = cards.length;
 
-  searchInput.addEventListener('input', function() {
-    const query = this.value.toLowerCase().trim();
-    let visible = 0;
+  function filterAll() {
+    const query = searchInput.value.toLowerCase().trim();
+    // Filter card grid
+    const cards = document.querySelectorAll('.location-card');
+    let visibleCards = 0;
+    const totalCards = cards.length > 0 ? cards.length : document.querySelectorAll('.table-row').length;
     cards.forEach(card => {
-      const name = card.dataset.name || '';
-      const region = card.dataset.region || '';
+      const name = (card.dataset.name || '').toLowerCase();
+      const region = (card.dataset.region || '').toLowerCase();
       if (!query || name.includes(query) || region.includes(query)) {
         card.style.display = '';
-        visible++;
-      } else {
-        card.style.display = 'none';
-      }
+        visibleCards++;
+      } else { card.style.display = 'none'; }
     });
-    filterCount.textContent = visible + ' of ' + totalCount + ' sites';
-    noResults.style.display = (visible === 0 && totalCount > 0 && query) ? 'block' : 'none';
-  });
+    // Filter table rows
+    const rows = document.querySelectorAll('.table-row');
+    let visibleRows = 0;
+    rows.forEach(row => {
+      const name = (row.dataset.name || '').toLowerCase();
+      const region = (row.dataset.region || '').toLowerCase();
+      if (!query || name.includes(query) || region.includes(query)) {
+        row.style.display = '';
+        visibleRows++;
+      } else { row.style.display = 'none'; }
+    });
+    const total = Math.max(cards.length, rows.length);
+    const visible = Math.max(visibleCards, visibleRows);
+    filterCount.textContent = visible + ' of ' + total + ' sites';
+    noResults.style.display = (visible === 0 && total > 0 && query) ? 'block' : 'none';
+  }
+
+  searchInput.addEventListener('input', filterAll);
 })();
 
 /* --- Map --- */
@@ -188,6 +334,7 @@ setTimeout(() => {
     .then(r => r.json())
     .then(data => {
       const bounds = [];
+      window._markers = window._markers || {};
       data.features.forEach(f => {
         const p = f.properties;
         const latlng = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
@@ -203,6 +350,8 @@ setTimeout(() => {
         const marker = L.circleMarker(latlng, {
           radius: radius, color: color, fillColor: fillColor, fillOpacity: 0.75, weight: 2
         }).addTo(map);
+        marker._origRadius = radius;
+        window._markers[p.id] = marker;
 
         const scoreText = score > 0 ? '<br>Spawn score: ' + score.toFixed(2) : '';
         const labelIcon = p.image_label === 'spawn' ? ' &#9679;' : '';

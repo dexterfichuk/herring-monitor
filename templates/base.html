@@ -360,6 +360,29 @@
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
 
+    /* View toggle */
+    .view-toggle { display: inline-flex; }
+    .view-btn {
+      padding: 6px 12px;
+      border: none;
+      background: var(--surface);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      transition: all 0.15s;
+      border-right: 1px solid var(--border);
+    }
+    .view-btn:last-child { border-right: none; }
+    .view-btn:hover { background: var(--surface-hover); color: var(--text); }
+    .view-btn.active { background: var(--accent-light); color: var(--accent); }
+
+    /* Location table */
+    .location-table th, .location-table td { vertical-align: middle; }
+    .table-row:hover { background: var(--surface-hover); }
+    .table-row.highlighted { background: var(--accent-light) !important; }
+    .sort-arrow { font-size: 10px; color: var(--text-muted); }
+
     /* Select styling */
     select {
       padding: 6px 10px;
