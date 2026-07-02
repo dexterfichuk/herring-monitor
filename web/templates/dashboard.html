@@ -1,18 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
+
+<!-- Map -->
 <div id="map" class="map-container"></div>
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-  <div style="display:flex;align-items:center;gap:8px;">
-    <h2 class="section-title" style="margin:0;">Locations</h2>
-    <span class="filter-count" id="filter-count">({{ locations|length }})</span>
+<!-- Controls -->
+<div class="flex-between mt-sm mb-sm">
+  <div class="flex-row gap-sm">
+    <h2 class="section-title">Locations</h2>
+    <span class="filter-count" id="filter-count">{{ locations|length }} sites</span>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <input type="text" id="searchInput" class="search-input" placeholder="Search by name or region..." autocomplete="off">
-    <button onclick="filterSpawn('0.5')" class="btn btn-ghost" style="font-size:12px;padding:4px 10px;{% if spawn_min=='0.5' %}border-color:#22c55e;color:#22c55e;{% endif %}">🐟 Likely Spawn</button>
-    <button onclick="filterSpawn('0.3')" class="btn btn-ghost" style="font-size:12px;padding:4px 10px;{% if spawn_min=='0.3' %}border-color:#fbbf24;color:#fbbf24;{% endif %}">Possible</button>
-    <button onclick="filterSpawn('')" class="btn btn-ghost" style="font-size:12px;padding:4px 10px;">All</button>
-    <select id="yearPicker" onchange="updateFilter()" style="padding:6px 10px;border-radius:8px;border:1px solid #2d3748;background:#1a2332;color:#e2e8f0;font-size:13px;">
+  <div class="flex-row gap-sm">
+    <div class="search-wrap">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" class="search-input" placeholder="Filter by name or region..." autocomplete="off">
+    </div>
+    <select id="yearPicker" onchange="updateFilter()">
       <option value="">All years</option>
       {% for yr in years %}
       <option value="{{ yr }}" {% if yr == selected_year %}selected{% endif %}>{{ yr }}</option>
@@ -21,123 +24,109 @@
   </div>
 </div>
 
-<!-- Spawn Season Timeline -->
-<div id="timeline-section" style="margin-bottom:24px;background:#1a2332;border:1px solid #2d3748;border-radius:12px;padding:16px;overflow:hidden;">
-  <h3 class="section-title" style="margin-bottom:8px;">📅 Spawn Timeline</h3>
-  <p style="font-size:12px;color:#64748b;margin-bottom:4px;">Max spawn score per location, per week. Green = spawn (&ge;0.5), yellow = possible (0.3&ndash;0.5).</p>
-  <div id="timeline-container" style="overflow-x:auto;overflow-y:auto;max-height:420px;">
-    <div id="timeline-loading" style="text-align:center;padding:40px;color:#64748b;">Loading timeline...</div>
+<!-- Spawn filter pills -->
+<div class="flex-row gap-sm mb-md">
+  <button onclick="filterSpawn('')" class="btn btn-sm {% if not spawn_min %}btn-primary{% endif %}">All sites</button>
+  <button onclick="filterSpawn('0.5')" class="btn btn-sm {% if spawn_min=='0.5' %}btn-primary{% endif %}" style="{% if spawn_min!='0.5' %}color:var(--spawn);border-color:var(--spawn);{% endif %}">&#9679; Likely spawn</button>
+  <button onclick="filterSpawn('0.3')" class="btn btn-sm {% if spawn_min=='0.3' %}btn-primary{% endif %}" style="{% if spawn_min!='0.3' %}color:var(--possible);border-color:var(--possible);{% endif %}">&#9679; Possible spawn</button>
+</div>
+
+<!-- Spawn Timeline -->
+<section class="card mb-md" style="padding:20px;">
+  <div class="flex-between mb-sm">
+    <div>
+      <h3 class="section-title" style="font-size:15px;">Season Timeline</h3>
+      <p class="section-subtitle">Max spawn score per location, per week</p>
+    </div>
+  </div>
+  <div class="timeline-container">
+    <div id="timeline-loading" style="text-align:center;padding:36px;color:var(--text-muted);">Loading&hellip;</div>
     <table id="timeline-table" style="display:none;border-collapse:collapse;font-size:11px;white-space:nowrap;width:100%;">
       <thead id="timeline-header"></thead>
       <tbody id="timeline-body"></tbody>
     </table>
   </div>
-  <div id="timeline-legend" style="display:none;margin-top:8px;font-size:11px;color:#94a3b8;gap:16px;flex-wrap:wrap;">
-    <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#22c55e;vertical-align:middle;margin-right:4px;"></span>Spawn (&ge;0.5)</span>
-    <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#d97706;vertical-align:middle;margin-right:4px;"></span>Possible (0.3&ndash;0.5)</span>
-    <span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#334155;vertical-align:middle;margin-right:4px;"></span>No data</span>
-  </div>
-</div>
+</section>
 
 <!-- Spawn Events Feed -->
-<div id="events-section" style="margin-bottom:24px;background:#1a2332;border:1px solid #2d3748;border-radius:12px;padding:16px;">
-  <h3 class="section-title" style="margin-bottom:12px;">🐟 Recent Spawn Events</h3>
-  <div id="events-loading" style="text-align:center;padding:40px;color:#64748b;">Loading events...</div>
-  <div id="events-list" style="display:none;gap:12px;overflow-x:auto;padding-bottom:8px;"></div>
-  <div id="events-empty" style="display:none;text-align:center;padding:20px;color:#64748b;">No recent spawn events found.</div>
-</div>
+<section class="card mb-md" style="padding:20px;">
+  <h3 class="section-title" style="font-size:15px;">Recent Spawn Events</h3>
+  <p class="section-subtitle">Most recent high-confidence detections across all sites</p>
+  <div id="events-loading" style="text-align:center;padding:36px;color:var(--text-muted);">Loading&hellip;</div>
+  <div id="events-list" style="display:none;gap:12px;overflow-x:auto;padding:12px 0 4px;"></div>
+  <div id="events-empty" style="display:none;text-align:center;padding:28px;color:var(--text-muted);">No recent spawn events found.</div>
+</section>
 
+<!-- Card Grid -->
 {% if not locations %}
-<div class="empty"><p>No locations. <a href="/add">Add your first</a>.</p></div>
+<div class="empty"><p>No locations yet. <a href="/add" style="color:var(--accent);">Add your first</a>.</p></div>
 {% else %}
-<div class="grid" id="locationGrid">
+<div id="locationGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
   {% for loc in locations %}
   <div class="card location-card" data-name="{{ loc.get('name', '')|lower }}" data-region="{{ loc.get('region', '')|lower }}" data-img-id="{{ loc.get('latest_image_id', '') }}">
-    <a href="/location/{{ loc.id }}" style="text-decoration:none;color:inherit;">
+    <a href="/location/{{ loc.id }}" style="text-decoration:none;color:inherit;display:block;">
       {% if loc.get('latest_image') %}
       <div style="position:relative;">
-        <img src="/images/{{ loc.get('latest_image', '') }}" alt="{{ loc.get('name', '') }}">
+        <img src="/images/{{ loc.get('latest_image', '') }}" alt="{{ loc.get('name', '') }}" loading="lazy"
+             style="width:100%;height:200px;object-fit:cover;display:block;background:#e8e4da;">
         {% set ss = loc.get('spawn_score') or 0 %}
-        <span style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.85);color:{% if ss >= 0.5 %}#22c55e{% elif ss >= 0.3 %}#fbbf24{% else %}#94a3b8{% endif %};padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;">{% if ss >= 0.5 %}🐟 Spawn{% elif ss >= 0.3 %}~Possible{% endif %}</span>
+        {% if ss >= 0.3 %}
+        <span class="pill {% if ss >= 0.5 %}pill-spawn{% else %}pill-possible{% endif %}" style="position:absolute;top:10px;left:10px;">
+          {% if ss >= 0.5 %}Spawn{% else %}Possible{% endif %}
+        </span>
+        {% endif %}
         {% set cc = loc.get('cloud_cover') or 100 %}
-        <span style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.7);color:{% if cc < 20 %}#86efac{% elif cc < 50 %}#fbbf24{% else %}#fca5a5{% endif %};padding:3px 8px;border-radius:999px;font-size:11px;">{{ cc|round|int }}%</span>
+        <span class="pill {% if cc < 20 %}pill-spawn{% elif cc < 50 %}pill-possible{% else %}pill-neutral{% endif %}" style="position:absolute;top:10px;right:10px;">
+          {{ cc|round|int }}% cloud
+        </span>
       </div>
       {% else %}
-      <div style="height:220px;background:#0f172a;display:grid;place-items:center;color:#64748b;">No image</div>
+      <div style="height:200px;background:#e8e4da;display:grid;place-items:center;color:var(--text-muted);font-size:13px;">No image</div>
       {% endif %}
-      <div class="card-body">
-        <h3>{{ loc.get('name', 'Unknown') }}</h3>
-        <div class="meta">
-          {{ loc.get('region', '') }} · {{ loc.get('lat', 0)|round(2) }}, {{ loc.get('lon', 0)|round(2) }}
-          {% if loc.get('latest_date') %} · {{ loc.get('latest_date', '')[:10] }}{% endif %}
-          {% if loc.get('spawn_score') %} · score {{ (loc.get('spawn_score', 0))|round(2) }}{% endif %}
+      <div style="padding:14px 16px;">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:2px;letter-spacing:-0.01em;">{{ loc.get('name', 'Unknown') }}</h3>
+        <div class="text-sm text-secondary">
+          {{ loc.get('region', '') }} &middot; {{ loc.get('lat', 0)|round(2) }}, {{ loc.get('lon', 0)|round(2) }}
+        </div>
+        <div class="text-xs text-muted" style="margin-top:3px;">
+          {% if loc.get('latest_date') %}{{ loc.get('latest_date', '')[:10] }}{% endif %}
+          {% if loc.get('spawn_score') %}&middot; score {{ (loc.get('spawn_score', 0))|round(2) }}{% endif %}
+          {% if loc.get('image_count') %}&middot; {{ loc.get('image_count') }} images{% endif %}
         </div>
       </div>
     </a>
     {% if loc.get('latest_image_id') %}
-    <div style="padding:4px 14px 10px;display:flex;gap:4px;align-items:center;">
-      <button class="label-btn spawn quick" onclick="event.stopPropagation();quickLabel(event, {{ loc.get('latest_image_id') }}, 'spawn')" title="Mark spawn">🐟</button>
-      <button class="label-btn nospawn quick" onclick="event.stopPropagation();quickLabel(event, {{ loc.get('latest_image_id') }}, 'no-spawn')" title="Mark no-spawn">✗</button>
-      <button class="label-btn quick" onclick="event.stopPropagation();quickLabel(event, {{ loc.get('latest_image_id') }}, 'skip')" title="Skip">⊘</button>
-      <span class="saved-indicator" id="dash-saved-{{ loc.get('latest_image_id') }}">Saved ✓</span>
+    <div style="padding:0 16px 12px;display:flex;gap:6px;align-items:center;border-top:1px solid var(--border);margin-top:-1px;padding-top:10px;">
+      <button class="label-btn spawn quick" onclick="event.stopPropagation();quickLabel(event, {{ loc.get('latest_image_id') }}, 'spawn')" title="Spawn">&#9679; Spawn</button>
+      <button class="label-btn nospawn quick" onclick="event.stopPropagation();quickLabel(event, {{ loc.get('latest_image_id') }}, 'no-spawn')" title="No spawn">&#10005; No</button>
+      <button class="label-btn quick" onclick="event.stopPropagation();quickLabel(event, {{ loc.get('latest_image_id') }}, 'skip')" title="Skip">Skip</button>
+      <span class="saved-indicator" id="dash-saved-{{ loc.get('latest_image_id') }}">&#10003; Saved</span>
     </div>
     {% endif %}
   </div>
   {% endfor %}
 </div>
 
-<div id="noResults" style="display:none;text-align:center;padding:40px;color:#64748b;">No locations match your search.</div>
+<div id="noResults" style="display:none;text-align:center;padding:40px;color:var(--text-muted);">No locations match your search.</div>
 {% endif %}
 
-<style>
-/* Timeline & events */
-#timeline-legend.show { display: flex; }
-#events-list.show { display: flex; }
-.timeline-cell {
-  width: 28px; height: 22px; border-radius: 2px; text-align: center;
-  cursor: pointer; position: relative;
-}
-.timeline-cell:hover { outline: 2px solid #fff; z-index: 1; }
-.timeline-row-label {
-  text-align: right; padding-right: 8px; font-size: 11px; color: #94a3b8;
-  white-space: nowrap; position: sticky; left: 0; background: #1a2332;
-  max-width: 120px; overflow: hidden; text-overflow: ellipsis;
-}
-.timeline-week-label {
-  writing-mode: sideways-lr; font-size: 10px; color: #64748b;
-  padding: 2px 4px; text-align: left; white-space: nowrap;
-}
-.event-card {
-  min-width: 160px; max-width: 180px; background: #0f172a; border: 1px solid #2d3748;
-  border-radius: 8px; overflow: hidden; flex-shrink: 0; cursor: pointer;
-  text-decoration: none; color: inherit; display: block;
-  transition: transform 0.15s;
-}
-.event-card:hover { transform: translateY(-2px); border-color: #22c55e; }
-.event-card img { width: 100%; height: 100px; object-fit: cover; display: block; background: #0f172a; }
-.event-card .event-info { padding: 8px 10px; }
-.event-card .event-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.event-card .event-meta { font-size: 11px; color: #64748b; margin-top: 2px; }
-.event-card .event-spawn { font-size: 11px; font-weight: 700; margin-top: 2px; }
-</style>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* --- Server filter functions --- */
+/* --- Server filter --- */
 function filterSpawn(val) {
-  document.getElementById('yearPicker').value = '{{ selected_year }}';
-  var url = '?spawn=' + val;
-  var year = document.getElementById('yearPicker').value;
+  const year = document.getElementById('yearPicker').value;
+  let url = '?spawn=' + val;
   if (year) url += '&year=' + year;
   window.location = url;
 }
 function updateFilter() {
-  var url = '?year=' + document.getElementById('yearPicker').value;
-  var spawn = '{{ spawn_min }}';
-  if (spawn) url += '&spawn=' + spawn;
+  const year = document.getElementById('yearPicker').value;
+  let url = '?year=' + year;
+  if ('{{ spawn_min }}') url += '&spawn={{ spawn_min }}';
   window.location = url;
 }
 
-/* --- Quick-label on dashboard cards (no navigation) --- */
+/* --- Quick label --- */
 var dashSavedTimers = {};
 window.quickLabel = async function(event, imgId, label) {
   event.preventDefault();
@@ -148,58 +137,47 @@ window.quickLabel = async function(event, imgId, label) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({label: label})
     });
-    var saved = document.getElementById('dash-saved-' + imgId);
+    const saved = document.getElementById('dash-saved-' + imgId);
     if (saved) {
       saved.classList.add('show');
       clearTimeout(dashSavedTimers[imgId]);
-      dashSavedTimers[imgId] = setTimeout(function() { saved.classList.remove('show'); }, 1500);
+      dashSavedTimers[imgId] = setTimeout(() => saved.classList.remove('show'), 1500);
     }
-  } catch(e) {
-    console.error('Label failed:', e);
-  }
+  } catch(e) { console.error('Label failed:', e); }
 };
 
-/* --- Client-side search/filter --- */
+/* --- Client search --- */
 (function() {
-  var searchInput = document.getElementById('searchInput');
-  var cards = Array.from(document.querySelectorAll('.location-card'));
-  var noResults = document.getElementById('noResults');
-  var filterCount = document.getElementById('filter-count');
-  var totalCount = cards.length;
+  const searchInput = document.getElementById('searchInput');
+  const cards = Array.from(document.querySelectorAll('.location-card'));
+  const noResults = document.getElementById('noResults');
+  const filterCount = document.getElementById('filter-count');
+  const totalCount = cards.length;
 
   searchInput.addEventListener('input', function() {
-    var query = this.value.toLowerCase().trim();
-    var visible = 0;
-
-    cards.forEach(function(card) {
-      var name = card.dataset.name || '';
-      var region = card.dataset.region || '';
-      if (!query || name.indexOf(query) !== -1 || region.indexOf(query) !== -1) {
+    const query = this.value.toLowerCase().trim();
+    let visible = 0;
+    cards.forEach(card => {
+      const name = card.dataset.name || '';
+      const region = card.dataset.region || '';
+      if (!query || name.includes(query) || region.includes(query)) {
         card.style.display = '';
         visible++;
       } else {
         card.style.display = 'none';
       }
     });
-
-    filterCount.textContent = '(Showing ' + visible + ' of ' + totalCount + ')';
-    if (visible === 0 && totalCount > 0 && query) {
-      noResults.style.display = 'block';
-    } else {
-      noResults.style.display = 'none';
-    }
+    filterCount.textContent = visible + ' of ' + totalCount + ' sites';
+    noResults.style.display = (visible === 0 && totalCount > 0 && query) ? 'block' : 'none';
   });
 })();
-</script>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-/* --- Color-coded map with CircleMarkers --- */
+/* --- Map --- */
 setTimeout(() => {
-  const map = L.map('map').setView([51.5, -127], 6);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([51.9, -127.2], 6);
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
   }).addTo(map);
 
   const year = document.getElementById('yearPicker').value;
@@ -209,37 +187,32 @@ setTimeout(() => {
   fetch(apiUrl)
     .then(r => r.json())
     .then(data => {
+      const bounds = [];
       data.features.forEach(f => {
         const p = f.properties;
         const latlng = [f.geometry.coordinates[1], f.geometry.coordinates[0]];
         const score = p.spawn_score != null ? p.spawn_score : 0;
+        bounds.push(latlng);
 
         let color, fillColor;
-        if (score >= 0.5) {
-          color = '#16a34a'; fillColor = '#22c55e';
-        } else if (score >= 0.3) {
-          color = '#b45309'; fillColor = '#d97706';
-        } else {
-          color = '#475569'; fillColor = '#64748b';
-        }
+        if (score >= 0.5) { color = '#4e7528'; fillColor = '#5b8731'; }
+        else if (score >= 0.3) { color = '#a56713'; fillColor = '#c27a1a'; }
+        else { color = '#9b8d7a'; fillColor = '#b0a590'; }
 
-        const radius = score > 0 ? 5 + score * 10 : 5;
-
+        const radius = 5 + score * 10;
         const marker = L.circleMarker(latlng, {
-          radius: radius,
-          color: color,
-          fillColor: fillColor,
-          fillOpacity: 0.8,
-          weight: 2
+          radius: radius, color: color, fillColor: fillColor, fillOpacity: 0.75, weight: 2
         }).addTo(map);
 
-        const scoreText = score > 0 ? `<br>Spawn score: ${score.toFixed(2)}` : '';
-        const labelBadge = p.image_label === 'spawn' ? ' <span style="color:#22c55e;">&#x1F421;</span>' : '';
+        const scoreText = score > 0 ? '<br>Spawn score: ' + score.toFixed(2) : '';
+        const labelIcon = p.image_label === 'spawn' ? ' &#9679;' : '';
         marker.bindTooltip(
-          `<b>${p.name}${labelBadge}</b><br>${p.region}${scoreText}<br>${p.scene_date ? p.scene_date.slice(0,10) : 'no image'}`,
+          '<b>' + p.name + labelIcon + '</b><br>' + p.region + scoreText + '<br>' + (p.scene_date ? p.scene_date.slice(0,10) : 'no image'),
           {direction: 'top', offset: [0, -radius]}
         );
+        marker.on('click', () => { window.location.href = '/location/' + p.id; });
       });
+      if (bounds.length) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
     });
 }, 200);
 
@@ -252,7 +225,7 @@ setTimeout(() => {
       document.getElementById('timeline-loading').style.display = 'none';
       if (!data.locations || !data.locations.length) {
         document.getElementById('timeline-loading').style.display = 'block';
-        document.getElementById('timeline-loading').textContent = 'No location data available.';
+        document.getElementById('timeline-loading').textContent = 'No location data.';
         return;
       }
 
@@ -260,62 +233,37 @@ setTimeout(() => {
       const thead = document.getElementById('timeline-header');
       const tbody = document.getElementById('timeline-body');
       table.style.display = 'table';
-      document.getElementById('timeline-legend').classList.add('show');
 
-      // Build header with week labels
-      const headerRow = document.createElement('tr');
-      const cornerTh = document.createElement('th');
-      cornerTh.textContent = 'Location';
-      cornerTh.style.cssText = 'position:sticky;left:0;background:#1a2332;min-width:100px;font-size:11px;color:#94a3b8;text-align:right;padding-right:8px;';
-      headerRow.appendChild(cornerTh);
-
-      data.weeks.forEach((w, i) => {
-        const th = document.createElement('th');
-        th.className = 'timeline-week-label';
+      let headerHTML = '<tr>';
+      headerHTML += '<th style="position:sticky;left:0;background:#fff;min-width:110px;font-size:11px;color:var(--text-muted);text-align:right;padding-right:10px;font-weight:500;">Location</th>';
+      data.weeks.forEach(w => {
         const parts = w.split('-');
-        th.textContent = parts[1] + '/' + parts[2];
-        th.title = w;
-        headerRow.appendChild(th);
+        headerHTML += '<th style="font-size:10px;color:var(--text-muted);padding:2px 4px;text-align:left;font-weight:400;">' + parts[1] + '/' + parts[2] + '</th>';
       });
-      thead.innerHTML = '';
-      thead.appendChild(headerRow);
+      headerHTML += '</tr>';
+      thead.innerHTML = headerHTML;
 
-      // Build body rows
-      tbody.innerHTML = '';
+      const stickyStyle = 'text-align:right;padding-right:10px;font-size:11px;color:var(--text-secondary);white-space:nowrap;position:sticky;left:0;background:#fff;max-width:110px;overflow:hidden;text-overflow:ellipsis;';
+      let bodyHTML = '';
       data.locations.forEach(loc => {
-        const tr = document.createElement('tr');
-        const tdLabel = document.createElement('td');
-        tdLabel.className = 'timeline-row-label';
-        tdLabel.textContent = loc.name;
-        tdLabel.title = loc.name + ' (' + loc.region + ')';
-        tr.appendChild(tdLabel);
-
+        bodyHTML += '<tr>';
+        bodyHTML += '<td style="' + stickyStyle + '" title="' + loc.name + ' (' + loc.region + ')">' + loc.name + '</td>';
         const locScores = data.scores[String(loc.id)] || {};
         data.weeks.forEach((w, i) => {
-          const td = document.createElement('td');
-          td.className = 'timeline-cell';
-          const weekIdx = String(i);
-          const score = locScores[weekIdx] !== undefined ? locScores[weekIdx] : null;
-
-          let bg = '#1e293b';
+          const score = locScores[String(i)] !== undefined ? locScores[String(i)] : null;
+          let bg = '#f3f0ea';
           if (score !== null) {
-            if (score >= 0.5) bg = '#22c55e';
-            else if (score >= 0.3) bg = '#d97706';
-            else bg = '#334155';
+            if (score >= 0.5) bg = '#a6c782';
+            else if (score >= 0.3) bg = '#e8c97a';
+            else bg = '#ddd8ce';
           }
-          td.style.background = bg;
-          td.title = (score !== null ? 'Score: ' + score.toFixed(2) : 'No data') + ' | ' + w;
-
-          if (score !== null) {
-            td.style.cursor = 'pointer';
-            td.addEventListener('click', (e) => {
-              window.location.href = '/location/' + loc.id + '?date=' + w;
-            });
-          }
-          tr.appendChild(td);
+          const title = (score !== null ? 'Score: ' + score.toFixed(2) : 'No data') + ' | ' + w;
+          const onclick = score !== null ? ' onclick="window.location.href=\'/location/' + loc.id + '?date=' + w + '\'"' : '';
+          bodyHTML += '<td class="timeline-cell" style="background:' + bg + ';' + (score !== null ? 'cursor:pointer;' : '') + '" title="' + title + '"' + onclick + '></td>';
         });
-        tbody.appendChild(tr);
+        bodyHTML += '</tr>';
       });
+      tbody.innerHTML = bodyHTML;
     })
     .catch(err => {
       document.getElementById('timeline-loading').textContent = 'Failed to load timeline.';
@@ -334,50 +282,26 @@ setTimeout(() => {
     .then(events => {
       document.getElementById('events-loading').style.display = 'none';
       const list = document.getElementById('events-list');
-
       if (!events || !events.length) {
         document.getElementById('events-empty').style.display = 'block';
         return;
       }
-
-      list.classList.add('show');
-
+      list.style.display = 'flex';
       const labeled = events.filter(e => e.image_label === 'spawn');
       const unlabeled = events.filter(e => e.image_label !== 'spawn');
-      const sorted = [...labeled, ...unlabeled];
-
-      sorted.forEach(ev => {
+      [...labeled, ...unlabeled].forEach(ev => {
         const a = document.createElement('a');
         a.href = '/location/' + ev.location_id;
-        a.className = 'event-card';
-
-        const img = document.createElement('img');
-        img.src = '/images/' + ev.filename;
-        img.alt = ev.scene_date;
-        img.loading = 'lazy';
-
-        const info = document.createElement('div');
-        info.className = 'event-info';
-
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'event-name';
-        nameDiv.textContent = ev.location_name;
-
-        const metaDiv = document.createElement('div');
-        metaDiv.className = 'event-meta';
-        metaDiv.textContent = (ev.scene_date || '').slice(0, 10) + ' · ' + ev.region;
-
-        const spawnDiv = document.createElement('div');
-        spawnDiv.className = 'event-spawn';
-        const isLabeled = ev.image_label === 'spawn';
-        spawnDiv.style.color = isLabeled ? '#86efac' : '#22c55e';
-        spawnDiv.textContent = (isLabeled ? '🐟 ' : '') + 'Score ' + (ev.spawn_score || 0).toFixed(2);
-
-        info.appendChild(nameDiv);
-        info.appendChild(metaDiv);
-        info.appendChild(spawnDiv);
-        a.appendChild(img);
-        a.appendChild(info);
+        a.className = 'event-card-link';
+        a.innerHTML =
+          '<img src="/images/' + ev.filename + '" loading="lazy" style="width:100%;height:100px;object-fit:cover;display:block;background:#e8e4da;" alt="">' +
+          '<div style="padding:10px 12px;">' +
+            '<div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + ev.location_name + '</div>' +
+            '<div class="text-xs text-muted">' + (ev.scene_date || '').slice(0,10) + ' &middot; ' + ev.region + '</div>' +
+            '<div style="font-size:11px;font-weight:600;margin-top:3px;color:' + (ev.image_label === 'spawn' ? 'var(--spawn)' : 'var(--accent)') + ';">' +
+              (ev.image_label === 'spawn' ? '&#9679; ' : '') + 'Score ' + (ev.spawn_score || 0).toFixed(2) +
+            '</div>' +
+          '</div>';
         list.appendChild(a);
       });
     })

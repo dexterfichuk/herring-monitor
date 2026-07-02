@@ -1,33 +1,39 @@
 {% extends "base.html" %}
 {% block content %}
+
 <h2 class="section-title">{{ location.get('name', 'Unknown') }}</h2>
-<p style="color:#64748b;margin-bottom:16px;">
-  {{ location.get('region', '') }} · {{ location.get('lat', 0)|round(4) }}, {{ location.get('lon', 0)|round(4) }} · {{ images|length }} images
-  <span style="margin-left:12px;font-size:11px;color:#4b5563;">Press <kbd style="display:inline-block;padding:1px 5px;border-radius:3px;border:1px solid #4b5563;background:#0f172a;font-family:monospace;font-size:10px;color:#94a3b8;">?</kbd> for shortcuts</span>
+<p class="text-sm text-muted mb-md">
+  {{ location.get('region', '') }} &middot; {{ location.get('lat', 0)|round(4) }}, {{ location.get('lon', 0)|round(4) }} &middot; {{ images|length }} images
+  <span style="margin-left:8px;font-size:11px;">Press <kbd style="display:inline-block;padding:1px 5px;border-radius:3px;border:1px solid var(--border);background:var(--bg);font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);">?</kbd> for shortcuts</span>
 </p>
 
 {% if not images %}
-<div class="empty">No images yet for this location.</div>
+<div class="empty"><p>No images yet for this location.</p></div>
 {% else %}
-<div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;">
   {% for img in images %}
   <div class="card" id="img-{{ img.id }}" tabindex="0">
     <img src="/images/{{ img.get('filename', '') }}" alt="{{ img.get('scene_date', '') }}" loading="lazy"
-         onclick="openLightbox(this.src, {{ img.id }})" style="cursor:zoom-in">
-    <div class="card-body">
-      <div class="meta" style="font-size:13px;margin-bottom:6px;">
+         onclick="openLightbox(this.src, {{ img.id }})" style="cursor:zoom-in;width:100%;height:240px;object-fit:cover;display:block;background:#e8e4da;">
+    <div style="padding:14px 16px;">
+      <div class="text-sm" style="margin-bottom:4px;">
         <strong>{{ img.get('scene_date', '')[:10] }}</strong>
-        · {{ (img.get('cloud_cover') or 100)|round|int }}% cloud
+        <span class="text-muted">&middot; {{ (img.get('cloud_cover') or 100)|round|int }}% cloud</span>
         {% set ss = img.get('spawn_score') or 0 %}
-        · score <span style="color:{% if ss >= 0.5 %}#86efac{% elif ss >= 0.3 %}#fbbf24{% else %}#94a3b8{% endif %}">{{ ss|round(2) }}</span>
+        <span style="color:{% if ss >= 0.5 %}var(--spawn){% elif ss >= 0.3 %}var(--possible){% else %}var(--text-muted){% endif %};font-weight:600;">&middot; score {{ ss|round(2) }}</span>
         {% set lbl = img.get('image_label') %}
-        <span class="label-badge" style="margin-left:4px;font-size:11px;">{% if lbl %}{{ {'spawn':'🐟 Spawn','no-spawn':'✗ No spawn','skip':'⊘ Skip'}[lbl] }}{% endif %}</span>
-        <span class="saved-indicator" id="saved-{{ img.id }}">Saved ✓</span>
+        <span class="text-xs" style="margin-left:4px;">
+          {% if lbl == 'spawn' %}<span class="pill pill-spawn">Spawn</span>
+          {% elif lbl == 'no-spawn' %}<span class="pill" style="background:var(--danger-bg);color:var(--danger);">No spawn</span>
+          {% elif lbl == 'skip' %}<span class="pill pill-neutral">Skip</span>
+          {% endif %}
+        </span>
+        <span class="saved-indicator" id="saved-{{ img.id }}">&#10003; Saved</span>
       </div>
-      <div style="display:flex;gap:6px;">
+      <div class="flex-row gap-sm">
         {% set lbl = img.get('image_label') %}
-        <button class="label-btn spawn{% if lbl=='spawn' %} active-spawn{% endif %}" data-img="{{ img.id }}" data-label="spawn">🐟 Spawn</button>
-        <button class="label-btn nospawn{% if lbl=='no-spawn' %} active-nospawn{% endif %}" data-img="{{ img.id }}" data-label="no-spawn">✗ No</button>
+        <button class="label-btn spawn{% if lbl=='spawn' %} active-spawn{% endif %}" data-img="{{ img.id }}" data-label="spawn">&#9679; Spawn</button>
+        <button class="label-btn nospawn{% if lbl=='no-spawn' %} active-nospawn{% endif %}" data-img="{{ img.id }}" data-label="no-spawn">&#10005; No</button>
         <button class="label-btn{% if lbl=='skip' %} active-skip{% endif %}" data-img="{{ img.id }}" data-label="skip">Skip</button>
       </div>
     </div>
@@ -36,28 +42,25 @@
 </div>
 {% endif %}
 
-<a href="/" class="btn btn-ghost" style="margin-top:20px;display:inline-block;">← Back to Dashboard</a>
+<a href="/" class="btn btn-ghost mt-lg">&larr; Back to Dashboard</a>
 
-<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9999;cursor:zoom-out;flex-direction:column;align-items:center;justify-content:center;" onclick="closeLightbox()">
-  <img id="lightbox-img" src="" style="max-width:95vw;max-height:85vh;object-fit:contain;border-radius:4px;">
-  <div id="lightbox-info" style="color:#94a3b8;margin-top:12px;font-size:14px;text-align:center;"></div>
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(30,25,15,0.96);z-index:9999;cursor:zoom-out;flex-direction:column;align-items:center;justify-content:center;" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" style="max-width:95vw;max-height:85vh;object-fit:contain;border-radius:8px;">
+  <div id="lightbox-info" style="color:var(--text-muted);margin-top:14px;font-size:14px;text-align:center;"></div>
 </div>
 
 <div class="shortcuts-legend" id="shortcuts-legend">
-  <strong style="color:#e2e8f0;">Keyboard Shortcuts</strong><br>
-  <kbd>&larr;</kbd> Label spawn &nbsp; <kbd>&rarr;</kbd> Label no-spawn &nbsp; <kbd>&darr;</kbd> Label skip<br>
-  <kbd>&uarr;</kbd> Previous image &nbsp; <kbd>Esc</kbd> Close lightbox &nbsp; <kbd>?</kbd> Toggle this
+  <strong>Keyboard Shortcuts</strong><br>
+  <kbd>&larr;</kbd> Spawn &nbsp; <kbd>&rarr;</kbd> No spawn &nbsp; <kbd>&darr;</kbd> Skip<br>
+  <kbd>&uarr;</kbd> Previous &nbsp; <kbd>Esc</kbd> Close &nbsp; <kbd>?</kbd> Toggle this
 </div>
 
 <script>
 (function() {
-  // --- Inline labeling (no page reload) ---
   var savedTimers = {};
   document.querySelectorAll('.label-btn[data-img]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      var imgId = this.dataset.img;
-      var label = this.dataset.label;
-      labelImage(imgId, label);
+      labelImage(this.dataset.img, this.dataset.label);
     });
   });
 
@@ -71,27 +74,29 @@
         body: JSON.stringify({label: label})
       });
       updateCardUI(card, imgId, label);
-    } catch(e) {
-      console.error('Label failed:', e);
-    }
+    } catch(e) { console.error('Label failed:', e); }
   }
 
   function updateCardUI(card, imgId, label) {
-    // Update button active states
     var btns = card.querySelectorAll('.label-btn');
-    btns.forEach(function(b) {
-      b.classList.remove('active-spawn', 'active-nospawn', 'active-skip');
-    });
+    btns.forEach(function(b) { b.classList.remove('active-spawn', 'active-nospawn', 'active-skip'); });
     var activeClass = label === 'spawn' ? 'active-spawn' : (label === 'no-spawn' ? 'active-nospawn' : 'active-skip');
     var activeBtn = card.querySelector('.label-btn[data-label="' + label + '"]');
     if (activeBtn) activeBtn.classList.add(activeClass);
 
-    // Update label badge
-    var badge = card.querySelector('.label-badge');
-    var labels = {spawn: '🐟 Spawn', 'no-spawn': '✗ No spawn', skip: '⊘ Skip'};
-    if (badge) badge.textContent = labels[label] || '';
+    var badges = card.querySelectorAll('.pill, .saved-indicator');
+    var labelTexts = {spawn: '<span class="pill pill-spawn">Spawn</span>', 'no-spawn': '<span class="pill" style="background:var(--danger-bg);color:var(--danger);">No spawn</span>', skip: '<span class="pill pill-neutral">Skip</span>'};
+    // Rebuild the badge area simply by finding and replacing the pill
+    var metaDiv = card.querySelector('.text-sm');
+    if (metaDiv) {
+      var existingPill = metaDiv.querySelector('.pill');
+      var savedInd = metaDiv.querySelector('.saved-indicator');
+      if (existingPill) existingPill.remove();
+      if (savedInd) savedInd.remove();
+      metaDiv.insertAdjacentHTML('beforeend', ' ' + labelTexts[label]);
+      metaDiv.insertAdjacentHTML('beforeend', ' <span class="saved-indicator" id="saved-' + imgId + '">&#10003; Saved</span>');
+    }
 
-    // Flash saved indicator
     var saved = document.getElementById('saved-' + imgId);
     if (saved) {
       saved.classList.add('show');
@@ -100,7 +105,6 @@
     }
   }
 
-  // --- Keyboard shortcuts ---
   var focusedIdx = 0;
   var cards = Array.from(document.querySelectorAll('.card[id^="img-"]'));
 
@@ -112,62 +116,40 @@
     focusedIdx = idx;
   }
 
-  // Click on a card sets focus
   cards.forEach(function(card, i) {
     card.addEventListener('click', function() { focusedIdx = i; });
   });
 
   document.addEventListener('keydown', function(e) {
-    // Ignore if user is typing in an input
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-
     if (e.key === '?') {
       e.preventDefault();
       var legend = document.getElementById('shortcuts-legend');
       legend.style.display = legend.style.display === 'block' ? 'none' : 'block';
       return;
     }
-    if (e.key === 'Escape') {
-      closeLightbox();
-      return;
-    }
-    // Only process if we have cards and lightbox is closed
+    if (e.key === 'Escape') { closeLightbox(); return; }
     if (cards.length === 0) return;
     var lb = document.getElementById('lightbox');
     if (lb && lb.style.display === 'flex') return;
 
-    if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      var imgId = cards[focusedIdx].id.replace('img-', '');
-      labelImage(imgId, 'spawn');
-    } else if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      var imgId = cards[focusedIdx].id.replace('img-', '');
-      labelImage(imgId, 'no-spawn');
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      var imgId = cards[focusedIdx].id.replace('img-', '');
-      labelImage(imgId, 'skip');
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      focusCard(Math.max(0, focusedIdx - 1));
-    }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); labelImage(cards[focusedIdx].id.replace('img-', ''), 'spawn'); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); labelImage(cards[focusedIdx].id.replace('img-', ''), 'no-spawn'); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); labelImage(cards[focusedIdx].id.replace('img-', ''), 'skip'); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); focusCard(Math.max(0, focusedIdx - 1)); }
   });
 
-  // Initial focus on first card
   if (cards.length > 0) focusCard(0);
 
-  // --- Lightbox (preserved from original) ---
   var currentImageId = null;
   window.openLightbox = function(src, imgId) {
     currentImageId = imgId;
     document.getElementById('lightbox-img').src = src;
     document.getElementById('lightbox').style.display = 'flex';
     document.body.style.overflow = 'hidden';
-
     var card = document.getElementById('img-' + imgId);
     if (card) {
-      var meta = card.querySelector('.meta').cloneNode(true);
+      var meta = card.querySelector('.text-sm').cloneNode(true);
       var info = document.getElementById('lightbox-info');
       info.innerHTML = '';
       info.appendChild(meta);
