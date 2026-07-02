@@ -30,10 +30,22 @@
     .map-container { height: 300px; border-radius: 12px; margin-bottom: 24px; border: 1px solid #2d3748; }
     .flash { padding: 10px 16px; margin-bottom: 16px; border-radius: 8px; }
     .flash-error { background: #7f1d1d; color: #fca5a5; }
-    .label-btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #2d3748; background: #1a2332; color: #e2e8f0; cursor: pointer; font-size: 16px; margin: 4px; }
+    .label-btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #2d3748; background: #1a2332; color: #e2e8f0; cursor: pointer; font-size: 16px; margin: 4px; transition: background 0.2s, border-color 0.2s; }
     .label-btn:hover { border-color: #3b82f6; }
     .label-btn.spawn { border-color: #22c55e; color: #22c55e; }
     .label-btn.nospawn { border-color: #ef4444; color: #ef4444; }
+    .label-btn.quick { font-size: 11px; padding: 3px 8px; margin: 2px; border-radius: 6px; }
+    .label-btn.active-spawn { background: #14532d !important; border-color: #22c55e !important; color: #86efac !important; }
+    .label-btn.active-nospawn { background: #7f1d1d !important; border-color: #ef4444 !important; color: #fca5a5 !important; }
+    .label-btn.active-skip { background: #1e293b !important; border-color: #64748b !important; color: #94a3b8 !important; }
+    .saved-indicator { display: inline-block; color: #86efac; font-size: 12px; margin-left: 8px; opacity: 0; transition: opacity 0.3s; }
+    .saved-indicator.show { opacity: 1; }
+    .card.focused { border-color: #3b82f6; box-shadow: 0 0 12px rgba(59,130,246,0.3); }
+    .search-input { width: 100%; max-width: 360px; padding: 8px 14px; border-radius: 8px; border: 1px solid #2d3748; background: #1a2332; color: #e2e8f0; font-size: 14px; }
+    .search-input:focus { outline: none; border-color: #3b82f6; }
+    .shortcuts-legend { position: fixed; bottom: 24px; right: 24px; background: #1a2332; border: 1px solid #2d3748; border-radius: 12px; padding: 16px 20px; font-size: 12px; color: #94a3b8; z-index: 9998; display: none; }
+    .shortcuts-legend kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; border: 1px solid #4b5563; background: #0f172a; font-family: monospace; color: #e2e8f0; font-size: 11px; margin: 0 2px; }
+    .filter-count { font-size: 12px; color: #64748b; margin-left: 8px; }
     .timeline { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; }
     .timeline-item { min-width: 220px; }
     .timeline-item img { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; }

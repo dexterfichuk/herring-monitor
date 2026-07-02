@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <h2 class="section-title">{{ location.get('name', 'Unknown') }}</h2>
-<p style="color:#64748b;margin-bottom:20px;">
+<p style="color:#64748b;margin-bottom:16px;">
   {{ location.get('region', '') }} · {{ location.get('lat', 0)|round(4) }}, {{ location.get('lon', 0)|round(4) }} · {{ images|length }} images
+  <span style="margin-left:12px;font-size:11px;color:#4b5563;">Press <kbd style="display:inline-block;padding:1px 5px;border-radius:3px;border:1px solid #4b5563;background:#0f172a;font-family:monospace;font-size:10px;color:#94a3b8;">?</kbd> for shortcuts</span>
 </p>
 
 {% if not images %}
@@ -10,7 +11,7 @@
 {% else %}
 <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
   {% for img in images %}
-  <div class="card" id="img-{{ img.id }}">
+  <div class="card" id="img-{{ img.id }}" tabindex="0">
     <img src="/images/{{ img.get('filename', '') }}" alt="{{ img.get('scene_date', '') }}" loading="lazy"
          onclick="openLightbox(this.src, {{ img.id }})" style="cursor:zoom-in">
     <div class="card-body">
@@ -20,13 +21,14 @@
         {% set ss = img.get('spawn_score') or 0 %}
         · score <span style="color:{% if ss >= 0.5 %}#86efac{% elif ss >= 0.3 %}#fbbf24{% else %}#94a3b8{% endif %}">{{ ss|round(2) }}</span>
         {% set lbl = img.get('image_label') %}
-        {% if lbl %}<span style="margin-left:4px;font-size:11px;">· {{ {'spawn':'🐟','no-spawn':'✗','skip':''}[lbl] }}</span>{% endif %}
+        <span class="label-badge" style="margin-left:4px;font-size:11px;">{% if lbl %}{{ {'spawn':'🐟 Spawn','no-spawn':'✗ No spawn','skip':'⊘ Skip'}[lbl] }}{% endif %}</span>
+        <span class="saved-indicator" id="saved-{{ img.id }}">Saved ✓</span>
       </div>
       <div style="display:flex;gap:6px;">
         {% set lbl = img.get('image_label') %}
-        <button class="label-btn spawn{% if lbl=='spawn' %}" style="background:#14532d;border-color:#22c55e;{% else %}"{% endif %} onclick="labelImg({{ img.id }},'spawn')">🐟 Spawn</button>
-        <button class="label-btn nospawn{% if lbl=='no-spawn' %}" style="background:#7f1d1d;border-color:#ef4444;{% else %}"{% endif %} onclick="labelImg({{ img.id }},'no-spawn')">✗ No</button>
-        <button class="label-btn{% if lbl=='skip' %}" style="background:#1e293b;border-color:#64748b;{% endif %}" onclick="labelImg({{ img.id }},'skip')">Skip</button>
+        <button class="label-btn spawn{% if lbl=='spawn' %} active-spawn{% endif %}" data-img="{{ img.id }}" data-label="spawn">🐟 Spawn</button>
+        <button class="label-btn nospawn{% if lbl=='no-spawn' %} active-nospawn{% endif %}" data-img="{{ img.id }}" data-label="no-spawn">✗ No</button>
+        <button class="label-btn{% if lbl=='skip' %} active-skip{% endif %}" data-img="{{ img.id }}" data-label="skip">Skip</button>
       </div>
     </div>
   </div>
@@ -41,33 +43,140 @@
   <div id="lightbox-info" style="color:#94a3b8;margin-top:12px;font-size:14px;text-align:center;"></div>
 </div>
 
+<div class="shortcuts-legend" id="shortcuts-legend">
+  <strong style="color:#e2e8f0;">Keyboard Shortcuts</strong><br>
+  <kbd>&larr;</kbd> Label spawn &nbsp; <kbd>&rarr;</kbd> Label no-spawn &nbsp; <kbd>&darr;</kbd> Label skip<br>
+  <kbd>&uarr;</kbd> Previous image &nbsp; <kbd>Esc</kbd> Close lightbox &nbsp; <kbd>?</kbd> Toggle this
+</div>
+
 <script>
-async function labelImg(id, label) {
-  await fetch('/api/images/' + id + '/label', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({label})});
-  location.reload();
-}
+(function() {
+  // --- Inline labeling (no page reload) ---
+  var savedTimers = {};
+  document.querySelectorAll('.label-btn[data-img]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var imgId = this.dataset.img;
+      var label = this.dataset.label;
+      labelImage(imgId, label);
+    });
+  });
 
-let currentImageId = null;
-function openLightbox(src, imgId) {
-  currentImageId = imgId;
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-
-  const card = document.getElementById('img-' + imgId);
-  if (card) {
-    const meta = card.querySelector('.meta').cloneNode(true);
-    document.getElementById('lightbox-info').innerHTML = '';
-    document.getElementById('lightbox-info').appendChild(meta);
+  async function labelImage(imgId, label) {
+    var card = document.getElementById('img-' + imgId);
+    if (!card) return;
+    try {
+      await fetch('/api/images/' + imgId + '/label', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({label: label})
+      });
+      updateCardUI(card, imgId, label);
+    } catch(e) {
+      console.error('Label failed:', e);
+    }
   }
-}
-function closeLightbox() {
-  document.getElementById('lightbox').style.display = 'none';
-  document.body.style.overflow = '';
-}
 
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeLightbox();
-});
+  function updateCardUI(card, imgId, label) {
+    // Update button active states
+    var btns = card.querySelectorAll('.label-btn');
+    btns.forEach(function(b) {
+      b.classList.remove('active-spawn', 'active-nospawn', 'active-skip');
+    });
+    var activeClass = label === 'spawn' ? 'active-spawn' : (label === 'no-spawn' ? 'active-nospawn' : 'active-skip');
+    var activeBtn = card.querySelector('.label-btn[data-label="' + label + '"]');
+    if (activeBtn) activeBtn.classList.add(activeClass);
+
+    // Update label badge
+    var badge = card.querySelector('.label-badge');
+    var labels = {spawn: '🐟 Spawn', 'no-spawn': '✗ No spawn', skip: '⊘ Skip'};
+    if (badge) badge.textContent = labels[label] || '';
+
+    // Flash saved indicator
+    var saved = document.getElementById('saved-' + imgId);
+    if (saved) {
+      saved.classList.add('show');
+      clearTimeout(savedTimers[imgId]);
+      savedTimers[imgId] = setTimeout(function() { saved.classList.remove('show'); }, 1500);
+    }
+  }
+
+  // --- Keyboard shortcuts ---
+  var focusedIdx = 0;
+  var cards = Array.from(document.querySelectorAll('.card[id^="img-"]'));
+
+  function focusCard(idx) {
+    if (idx < 0 || idx >= cards.length) return;
+    cards.forEach(function(c) { c.classList.remove('focused'); });
+    cards[idx].classList.add('focused');
+    cards[idx].scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    focusedIdx = idx;
+  }
+
+  // Click on a card sets focus
+  cards.forEach(function(card, i) {
+    card.addEventListener('click', function() { focusedIdx = i; });
+  });
+
+  document.addEventListener('keydown', function(e) {
+    // Ignore if user is typing in an input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+    if (e.key === '?') {
+      e.preventDefault();
+      var legend = document.getElementById('shortcuts-legend');
+      legend.style.display = legend.style.display === 'block' ? 'none' : 'block';
+      return;
+    }
+    if (e.key === 'Escape') {
+      closeLightbox();
+      return;
+    }
+    // Only process if we have cards and lightbox is closed
+    if (cards.length === 0) return;
+    var lb = document.getElementById('lightbox');
+    if (lb && lb.style.display === 'flex') return;
+
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      var imgId = cards[focusedIdx].id.replace('img-', '');
+      labelImage(imgId, 'spawn');
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      var imgId = cards[focusedIdx].id.replace('img-', '');
+      labelImage(imgId, 'no-spawn');
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      var imgId = cards[focusedIdx].id.replace('img-', '');
+      labelImage(imgId, 'skip');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusCard(Math.max(0, focusedIdx - 1));
+    }
+  });
+
+  // Initial focus on first card
+  if (cards.length > 0) focusCard(0);
+
+  // --- Lightbox (preserved from original) ---
+  var currentImageId = null;
+  window.openLightbox = function(src, imgId) {
+    currentImageId = imgId;
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    var card = document.getElementById('img-' + imgId);
+    if (card) {
+      var meta = card.querySelector('.meta').cloneNode(true);
+      var info = document.getElementById('lightbox-info');
+      info.innerHTML = '';
+      info.appendChild(meta);
+    }
+  };
+  window.closeLightbox = function() {
+    document.getElementById('lightbox').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+})();
 </script>
 {% endblock %}

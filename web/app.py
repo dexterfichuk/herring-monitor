@@ -69,6 +69,8 @@ def dashboard():
         SELECT l.*,
             (SELECT filename FROM images WHERE location_id=l.id {year_clause} {spawn_clause}
              ORDER BY COALESCE(cloud_cover,100) ASC, scene_date DESC LIMIT 1) as latest_image,
+            (SELECT id FROM images WHERE location_id=l.id {year_clause} {spawn_clause}
+             ORDER BY COALESCE(cloud_cover,100) ASC, scene_date DESC LIMIT 1) as latest_image_id,
             (SELECT scene_date FROM images WHERE location_id=l.id {year_clause} {spawn_clause}
              ORDER BY COALESCE(cloud_cover,100) ASC, scene_date DESC LIMIT 1) as latest_date,
             (SELECT cloud_cover FROM images WHERE location_id=l.id {year_clause} {spawn_clause}
@@ -201,19 +203,137 @@ def label_image(image_id):
     return jsonify({"status": "ok"})
 
 
-@app.route("/api/spawn-events")
-def api_spawn_events():
-    """Return all locations as GeoJSON for the map."""
+@app.route("/api/locations-map")
+def api_locations_map():
+    """Return all locations with latest spawn data as GeoJSON for the map."""
     db = get_db(app.config["DB_PATH"])
-    locs = db.execute("SELECT * FROM locations").fetchall()
+    year = request.args.get("year", "")
+    spawn_min = request.args.get("spawn", "")
+    year_clause = "AND scene_date LIKE :year" if year else ""
+    spawn_clause = "AND COALESCE(spawn_score,0) >= :spawn" if spawn_min else ""
+    params = {}
+    if year:
+        params["year"] = f"{year}%"
+    if spawn_min:
+        params["spawn"] = float(spawn_min)
+
+    # Query with latest image info per location matching filters
+    query = f"""
+        SELECT l.id, l.name, l.region, l.lat, l.lon,
+            i.spawn_score, i.scene_date, i.filename, i.image_label
+        FROM locations l
+        LEFT JOIN (
+            SELECT location_id, spawn_score, scene_date, filename, image_label,
+                   ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY scene_date DESC) AS rn
+            FROM images WHERE 1=1 {year_clause} {spawn_clause}
+        ) i ON l.id = i.location_id AND i.rn = 1
+        ORDER BY l.id
+    """
+    locs = db.execute(query, params).fetchall()
     features = []
     for l in locs:
         features.append({
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [l["lon"], l["lat"]]},
-            "properties": {"id": l["id"], "name": l["name"], "region": l["region"]},
+            "properties": {
+                "id": l["id"], "name": l["name"], "region": l["region"],
+                "spawn_score": l["spawn_score"],
+                "scene_date": l["scene_date"],
+                "image_label": l["image_label"],
+                "filename": l["filename"],
+            },
         })
     return jsonify({"type": "FeatureCollection", "features": features})
+
+
+@app.route("/api/spawn-timeline")
+def api_spawn_timeline():
+    """Return weekly max spawn scores per location for the season timeline."""
+    db = get_db(app.config["DB_PATH"])
+    year = request.args.get("year", "") or datetime.date.today().year
+
+    # Get date range from actual data for the given year
+    range_row = db.execute(
+        "SELECT MIN(scene_date) as min_d, MAX(scene_date) as max_d FROM images WHERE scene_date LIKE ?",
+        (f"{year}%",)
+    ).fetchone()
+    if not range_row or not range_row["min_d"]:
+        return jsonify({"locations": [], "weeks": [], "scores": {}})
+
+    date_min = range_row["min_d"]
+    date_max = range_row["max_d"]
+
+    # Extend to cover Feb 1 - May 15 for the given year if data is within range
+    yr = str(year)
+    season_start = f"{yr}-02-01"
+    season_end = f"{yr}-05-15"
+    if date_min > season_start:
+        date_min = season_start
+    if date_max < season_end:
+        date_max = season_end
+
+    # Build week labels (ISO week boundaries)
+    weeks = []
+    cur = datetime.date.fromisoformat(date_min)
+    end = datetime.date.fromisoformat(date_max)
+    while cur <= end:
+        weeks.append(cur.isoformat())
+        cur += datetime.timedelta(days=7)
+
+    # Get locations
+    locations = [dict(l) for l in db.execute("SELECT id, name, region FROM locations ORDER BY region, name").fetchall()]
+
+    # Get weekly max spawn_score per location using SQL aggregation
+    scores = {}
+    all_weeks_have_no_data = True
+    for loc in locations:
+        scores[str(loc["id"])] = {}
+    for i, wk in enumerate(weeks):
+        wk_end = (datetime.date.fromisoformat(wk) + datetime.timedelta(days=7)).isoformat()
+        rows = db.execute("""
+            SELECT location_id, MAX(COALESCE(spawn_score,0)) as max_score
+            FROM images
+            WHERE scene_date >= ? AND scene_date < ?
+            GROUP BY location_id
+        """, (wk, wk_end)).fetchall()
+        for r in rows:
+            if r["max_score"] is not None:
+                scores[str(r["location_id"])][str(i)] = round(r["max_score"], 2)
+                if r["max_score"] > 0:
+                    all_weeks_have_no_data = False
+
+    # If all data is outside the season but we want to show the season, it's fine
+    return jsonify({
+        "locations": locations,
+        "weeks": weeks,
+        "scores": scores,
+    })
+
+
+@app.route("/api/spawn-events")
+def api_spawn_events():
+    """Return recent spawn events (images with spawn_score >= threshold)."""
+    db = get_db(app.config["DB_PATH"])
+    year = request.args.get("year", "")
+    threshold = request.args.get("threshold", "0.5")
+    limit = request.args.get("limit", "30")
+
+    year_clause = "AND i.scene_date LIKE :year" if year else ""
+    params = {"threshold": float(threshold), "limit": int(limit)}
+    if year:
+        params["year"] = f"{year}%"
+
+    rows = db.execute(f"""
+        SELECT i.id, i.spawn_score, i.scene_date, i.filename, i.image_label,
+               l.id as location_id, l.name as location_name, l.region
+        FROM images i
+        JOIN locations l ON i.location_id = l.id
+        WHERE COALESCE(i.spawn_score,0) >= :threshold {year_clause}
+        ORDER BY i.spawn_score DESC, i.scene_date DESC
+        LIMIT :limit
+    """, params).fetchall()
+
+    return jsonify([dict(r) for r in rows])
 
 
 @app.route("/login", methods=["GET", "POST"])
